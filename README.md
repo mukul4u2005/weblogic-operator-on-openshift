@@ -7,6 +7,8 @@ This document is a guide to getting started with the [WebLogic Kubernetes Operat
 - You must have the OpenShift command line tools installed (including `oc` and `kubectl`). You can download the latest tools from [this link](https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable-4.7/) (you'll look for the `openshift-client-{{ operating-system }}` file). 
 - You must have Helm (v3) installed on your local machine. You can download the latest tools from [this link](https://mirror.openshift.com/pub/openshift-v4/clients/helm/latest/) (you'll look for the `helm-{{ operating-system }}-{{ architecture }}` file).
 - You must have either Docker or Podman installed locally on your machine. We will be used it to pull, push, and build images. If you are looking to use Docker, follow these docs to install on [Mac](https://docs.docker.com/docker-for-mac/install/) or [Windows](https://docs.docker.com/docker-for-windows/install/)). If you're looking to use Podman (Linux) ensure that you have an alias set up for the docker command to route to podman (`alias docker=podman`).
+- You must have Java 8 installed and your JAVA_HOME variable set. You can find instructions at [this link](https://developers.redhat.com/blog/2018/12/10/install-java-rhel8#).
+- You must have Maven [downloaded](https://maven.apache.org/download.cgi) and [installed](https://maven.apache.org/install.html).
 - You must have `cluster-admin` access to your OpenShift cluster. 
 
 ### Step 1

@@ -11,7 +11,7 @@ This document is a guide to getting started with the [WebLogic Kubernetes Operat
 - You must have Maven [downloaded](https://maven.apache.org/download.cgi) and [installed](https://maven.apache.org/install.html).
 - You must have `cluster-admin` access to your OpenShift cluster. 
 
-### Step 1
+### Part 1: Clone this Repository
 
 On your local machine, clone this repository by running the following command:
 
@@ -20,19 +20,12 @@ git clone --recurse-submodules https://github.com/jnovotni/weblogic-operator-on-
 ```
 
 Then, change directory to the newly cloned repository by running the following command:
+
 ```
 cd weblogic-operator-on-openshift/
 ```
 
-### Step 2
-
-Login to the Oracle Container Registry to allow Docker to pull images using your credentials by running the following command:
-
-```
-docker login container-registry.oracle.com
-```
-
-### Step 3 
+### Part 2: Deploy the WebLogic Operator
 
 Login to OpenShift using your credentials. To get a token to login, follow these directions:
 
@@ -40,9 +33,10 @@ Login to OpenShift using your credentials. To get a token to login, follow these
 2. Once you authenticate, select "Display Token"
 3. Copy the `oc` command displayed. 
 4. Run the command in your terminal. 
-5. Do NOT close this window out, as we will need it in Step 5.
+5. Do NOT close this window out, as we will need it later.
 
 The command will be similar to:
+
 ```
 oc login --token=sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --server=https://api.ocp.example.com:6443
 ```
@@ -57,33 +51,116 @@ You have access to 70 projects, the list has been suppressed. You can list all p
 Using project "default".
 ```
 
-### Step 4 
-
-Ensure that the OpenShift registry is exposed by running the following command:
+Create a project (namespace) to install the WebLogic Kubernetes Operator into by running the following command:
 
 ```
-oc patch configs.imageregistry.operator.openshift.io/cluster --patch '{"spec":{"defaultRoute":true}}' --type=merge
+oc new-project weblogic-operator
 ```
 
-### Step 5
-
-Login to the OpenShift registry to allow Docker to push images using your credentials by running the following command:
+Create a service account for the operator to use by running the following command:
 
 ```
-docker login $(oc get route default-route -n openshift-image-registry --template='{{ .spec.host }}')
+oc create serviceaccount -n weblogic-operator weblogic-operator-sa
 ```
 
-When prompted, enter your OpenShift username, and the token from Step 3 above. (The token will look like `sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`, do not enter the `oc` command).
+Install the operator using Helm by running the following command:
 
+```
+helm install weblogic-operator weblogic-kubernetes-operator/kubernetes/charts/weblogic-operator \
+  --namespace weblogic-operator \
+  --set image=ghcr.io/oracle/weblogic-kubernetes-operator:3.2.2 \
+  --set serviceAccount=weblogic-operator-sa \
+  --set "enableClusterRoleBinding=true" \
+  --set "domainNamespaceSelectionStrategy=LabelSelector" \
+  --set "domainNamespaceLabelSelector=weblogic-operator\=enabled" \
+  --wait
+```
 
-### Step 6
+If successful, the output will be similar to:
+
+```
+NAME: weblogic-operator
+LAST DEPLOYED: Wed May 19 11:30:49 2021
+NAMESPACE: weblogic-operator
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+```
+
+The Helm command we ran configured the operator to manage domains in any OpenShift project (namespace) with the label, “weblogic-operator=enabled”. 
+
+Validate the operator deployment by running the following command:
+
+```
+oc get pods -n weblogic-operator
+```
+
+If successful, the output will be similar to:
+
+```
+NAME                                 READY   STATUS    RESTARTS   AGE
+weblogic-operator-6bb58697b7-2zbql   1/1     Running   0          87s
+```
+
+Ensure that the pod is "Running" and is "Ready (1/1)".
+
+If you look at the pod logs, you may see the error message:
+
+```
+Operator cannot proceed, as the Custom Resource Definition for ''domains.weblogic.oracle'' is not installed.
+```
+
+However, once there are domains for the operator to manage, this message should disappear.
+
+### Part 3: Create a Project for the Domain
+
+Create a project (namespace) to deploy our domain to by running the following command:
+
+```
+oc new-project sample-domain1
+```
+
+Label the project (namespace) to ensure the operator knows to manage it.
+
+```
+oc label ns sample-domain1 weblogic-operator=enabled
+```
+
+The operator expects a Kubernetes secret to exist with the credentials for the WebLogic administrator. The password **must** have at least 8 alphanumeric characters with at least one number or special character. If you do not follow this requirement, the domain creation will fail.
+
+To create a secret using the default credentials, run the following command:
+
+```
+./weblogic-kubernetes-operator/kubernetes/samples/scripts/create-weblogic-domain-credentials/create-weblogic-credentials.sh \
+-u administrator -p AbCdEfG123! -n sample-domain1 -d domain1
+```
+
+The output will be similar to:
+
+```
+secret/domain1-weblogic-credentials created
+secret/domain1-weblogic-credentials labeled
+The secret domain1-weblogic-credentials has been successfully created in the sample-domain1 namespace.
+```
+
+> Important note: if you change the username and password (as you should in your enterprise environment) in the above commands, you will need to also change them in the `properties/docker-build/adminpass.properties`, `properties/docker-build/adminuser.properties`, and `properties/docker-run/security.properties` files. 
+
+### Part 4 Build the Domain Image
+
+Login to the Oracle Container Registry to allow Docker to pull images using your credentials by running the following command:
+
+```
+docker login container-registry.oracle.com
+```
 
 Pull the base image for the domain from the Oracle image registry by running the following command:
+
 ```
 docker pull container-registry.oracle.com/middleware/weblogic:12.2.1.4
 ```
 
 The output will be similar to:
+
 ```
 12.2.1.4: Pulling from middleware/weblogic
 401a42e1eb4f: Pull complete
@@ -97,104 +174,6 @@ Status: Downloaded newer image for container-registry.oracle.com/middleware/webl
 container-registry.oracle.com/middleware/weblogic:12.2.1.4
 ```
 
-### Step 7
-
-Create a project (namespace) to install the WebLogic Kubernetes Operator into by running the following command:
-
-```
-oc new-project weblogic-operator
-```
-
-### Step 8
-
-Create a service account for the operator to use by running the following command:
-
-```
-oc create serviceaccount -n weblogic-operator weblogic-operator-sa
-```
-
-### Step 9
-
-Install the operator using Helm by running the following command:
-```
-helm install weblogic-operator weblogic-kubernetes-operator/kubernetes/charts/weblogic-operator \
-  --namespace weblogic-operator \
-  --set image=ghcr.io/oracle/weblogic-kubernetes-operator:3.2.2 \
-  --set serviceAccount=weblogic-operator-sa \
-  --set "enableClusterRoleBinding=true" \
-  --set "domainNamespaceSelectionStrategy=LabelSelector" \
-  --set "domainNamespaceLabelSelector=weblogic-operator\=enabled" \
-  --wait
-```
-
-If successful, the output will be similar to:
-```
-NAME: weblogic-operator
-LAST DEPLOYED: Wed May 19 11:30:49 2021
-NAMESPACE: weblogic-operator
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
-```
-
-The Helm command we ran configured the operator to manage domains in any OpenShift project (namespace) with the label, “weblogic-operator=enabled”. 
-
-### Step 10
-
-Validate the operator deployment by running the following command:
-```
-oc get pods -n weblogic-operator
-```
-
-If successful, the output will be similar to:
-```
-NAME                                 READY   STATUS    RESTARTS   AGE
-weblogic-operator-6bb58697b7-2zbql   1/1     Running   0          87s
-```
-
-Ensure that the pod is "Running" and is "Ready (1/1)".
-
-If you look at the pod logs, you may see the error message:
-```
-Operator cannot proceed, as the Custom Resource Definition for ''domains.weblogic.oracle'' is not installed.
-```
-However, once there are domains for the operator to manage, this message should disappear.
-
-### Step 11
-
-Create a project (namespace) to deploy our domain to by running the following command:
-```
-oc new-project sample-domain1
-```
-
-### Step 12
-
-Label the project (namespace) to ensure the operator knows to manage it.
-```
-oc label ns sample-domain1 weblogic-operator=enabled
-```
-
-### Step 13
-
-The operator expects a Kubernetes secret to exist with the credentials for the WebLogic administrator. The password **must** have at least 8 alphanumeric characters with at least one number or special character. If you do not follow this requirement, the domain creation will fail.
-
-To create a secret using the default credentials, run the following command:
-```
-./weblogic-kubernetes-operator/kubernetes/samples/scripts/create-weblogic-domain-credentials/create-weblogic-credentials.sh \
--u administrator -p AbCdEfG123! -n sample-domain1 -d domain1
-```
-
-The output will be similar to:
-```
-secret/domain1-weblogic-credentials created
-secret/domain1-weblogic-credentials labeled
-The secret domain1-weblogic-credentials has been successfully created in the sample-domain1 namespace.
-```
-
-> Important note: if you change the username and password (as you should in your enterprise environment) in the above commands, you will need to also change them in the `properties/docker-build/adminpass.properties`, `properties/docker-build/adminuser.properties`, and `properties/docker-run/security.properties` files. 
-
-### Step 14
-
 Download the WebLogic Deploy Tooling to your local working directory. You can download the latest release directly from Oracle [here](https://github.com/oracle/weblogic-deploy-tooling/releases/latest).
 
 You can download version 1.9.12 using the following command:
@@ -203,8 +182,6 @@ You can download version 1.9.12 using the following command:
 wget https://github.com/oracle/weblogic-deploy-tooling/releases/download/release-1.9.12/weblogic-deploy.zip
 ```
 
-### Step 15
-
 Using the `build-archive.sh` script, build the sample application we will be deploying using the following command:
 
 ```
@@ -212,6 +189,7 @@ Using the `build-archive.sh` script, build the sample application we will be dep
 ```
 
 The output will be similar to:
+
 ```
 [INFO] Installing /Users/mmcneill/Git/weblogic-on-openshift/test-webapp/target/testwebapp.war to /Users/mmcneill/.m2/repository/com/oracle/weblogic/testwebapp/1.0/testwebapp-1.0.war
 [INFO] Installing /Users/mmcneill/Git/weblogic-on-openshift/test-webapp/pom.xml to /Users/mmcneill/.m2/repository/com/oracle/weblogic/testwebapp/1.0/testwebapp-1.0.pom
@@ -227,8 +205,6 @@ adding: wlsdeploy/applications/(in = 0) (out= 0)(stored 0%)
 adding: wlsdeploy/applications/testwebapp.war(in = 3548) (out= 2507)(deflated 29%)
 ```
 
-### Step 16
-
 Using the `quickBuild.sh` script, build the container image that contains our custom application using the following command:
 
 ```
@@ -236,6 +212,7 @@ Using the `quickBuild.sh` script, build the container image that contains our cu
 ```
 
 The output will be similar to:
+
 ```
  => exporting to image                                                                                                                                                                                                                   8.9s
  => => exporting layers                                                                                                                                                                                                                  8.9s
@@ -243,7 +220,21 @@ The output will be similar to:
  => => naming to docker.io/library/my-domain1-image:1.0
 ```
 
-### Step 19
+### Part 5: Push the Domain Image
+
+Ensure that the OpenShift registry is exposed by running the following command:
+
+```
+oc patch configs.imageregistry.operator.openshift.io/cluster --patch '{"spec":{"defaultRoute":true}}' --type=merge
+```
+
+Login to the OpenShift registry to allow Docker to push images using your credentials by running the following command:
+
+```
+docker login $(oc get route default-route -n openshift-image-registry --template='{{ .spec.host }}')
+```
+
+When prompted, enter your OpenShift username, and the token from before. (The token will look like `sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`, do not enter the `oc` command).
 
 Tag and push our newly created image to the OpenShift registry by running the following commands:
 
@@ -253,6 +244,7 @@ docker push $(oc get route default-route -n openshift-image-registry --template=
 ```
 
 The output will be similar to:
+
 ```
 5f70bf18a086: Pushed
 5126ea77cec1: Pushed
@@ -270,15 +262,13 @@ f44d1cb58cca: Pushed
 1.0: digest: sha256:5044fc62fd72918d75c40c2363738897d3b8f5143109e0e51ecc38e56d6f9e4d size: 3253
 ```
 
-### Step 18
+### Part 6: Deploy the Domain
 
 Create the WebLogic Domain Custom Resource (CR) object in OpenShift by running the following command:
 
 ```
 oc apply -f sample-domain.yaml
 ```
-
-### Step 19
 
 Monitor the pods as they start up, ensuring that the `domain1-admin-server`, `domain1-managed-server-1`, and `domain1-managed-server-2` are all "Running" and "Ready (1/1)". To do so, run the following command:
 
@@ -321,7 +311,7 @@ domain1-managed-server-2     1/1     Running             0          42s
 
 Once you see the three containers in "Running" and "Ready (1/1)" status, you can Control+c out of the command.
 
-### Step 20
+### Part 7: View the Administration Portal and Application
 
 We now need to expose both the admin server and the application frontend, using OpenShift's built-in ingress controller. This will enable us to access the admin console, use tooling like WLST, and access our newly deployed WebLogic application. To expose the operator-created services, by running the following command:
 
@@ -330,18 +320,18 @@ oc expose service domain1-admin-server-ext --port=default
 oc expose service domain1-cluster-cluster-1 --port=default
 ```
 
-### Step 21
-
 You are now ready to access the admin console or the application in your web browser. 
 
 To get the host for the admin console, run the following command: 
+
 ```
 oc get route domain1-admin-server-ext -n sample-domain1 --template='{{ .spec.host }}'
 ```
 
-Once you have the host, going to `http://{{ host }}/console` will allow you to authenticate with the credentials created in step 13 above.
+Once you have the host, going to `http://{{ host }}/console` will allow you to authenticate with the credentials created previously.
 
 To get the host for the WebLogic application, run the following command: 
+
 ```
 oc get route domain1-cluster-cluster-1 -n sample-domain1 --template='{{ .spec.host }}'
 ```

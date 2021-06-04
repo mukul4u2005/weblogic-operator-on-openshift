@@ -33,7 +33,7 @@ Login to OpenShift using your credentials. To get a token to login, follow these
 2. Once you authenticate, select "Display Token"
 3. Copy the `oc` command displayed. 
 4. Run the command in your terminal. 
-5. Do NOT close this window out, as we will need it in Step 5.
+5. Do NOT close this window out, as we will need it later.
 
 The command will be similar to:
 
@@ -234,7 +234,7 @@ Login to the OpenShift registry to allow Docker to push images using your creden
 docker login $(oc get route default-route -n openshift-image-registry --template='{{ .spec.host }}')
 ```
 
-When prompted, enter your OpenShift username, and the token from Step 3 above. (The token will look like `sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`, do not enter the `oc` command).
+When prompted, enter your OpenShift username, and the token from before. (The token will look like `sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`, do not enter the `oc` command).
 
 Tag and push our newly created image to the OpenShift registry by running the following commands:
 
@@ -328,7 +328,7 @@ To get the host for the admin console, run the following command:
 oc get route domain1-admin-server-ext -n sample-domain1 --template='{{ .spec.host }}'
 ```
 
-Once you have the host, going to `http://{{ host }}/console` will allow you to authenticate with the credentials created in step 13 above.
+Once you have the host, going to `http://{{ host }}/console` will allow you to authenticate with the credentials created previously.
 
 To get the host for the WebLogic application, run the following command: 
 

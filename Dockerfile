@@ -84,6 +84,12 @@ ENV DOMAIN_HOME=${DOMAIN_PARENT}/${DOMAIN_NAME} \
     SCRIPT_HOME="${ORACLE_HOME}" \
     PATH=$PATH:${ORACLE_HOME}/oracle_common/common/bin:${ORACLE_HOME}/wlserver/common/bin:${DOMAIN_HOME}:${DOMAIN_HOME}/bin:${ORACLE_HOME}
 
+RUN pwd && ls
+
+RUN ls simple-topology.yaml
+
+RUN ls archive.zip
+
 COPY weblogic-deploy.zip ${WDT_HOME}
 COPY container-scripts/* ${SCRIPT_HOME}/
 
@@ -112,7 +118,7 @@ ENV WDT_HOME=$WDT_HOME/weblogic-deploy
 # Be sure to build with --force-rm to eliminate this container layer
 
 RUN pwd && ls
-RUN ls -la /tmp/build/input
+
 
 COPY ${WDT_MODEL} ${WDT_ARCHIVE} ${WDT_VARIABLE} properties/docker-build/*.properties ${PROPERTIES_FILE_DIR}/
 # --chown for COPY is available in docker version 18 'COPY --chown oracle:root'

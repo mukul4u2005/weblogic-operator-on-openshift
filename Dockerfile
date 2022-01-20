@@ -111,6 +111,9 @@ ENV WDT_HOME=$WDT_HOME/weblogic-deploy
 # These files will be removed after the image is built.
 # Be sure to build with --force-rm to eliminate this container layer
 
+RUN pwd && ls
+RUN ls -la /tmp/build/input
+
 COPY ${WDT_MODEL} ${WDT_ARCHIVE} ${WDT_VARIABLE} properties/docker-build/*.properties ${PROPERTIES_FILE_DIR}/
 # --chown for COPY is available in docker version 18 'COPY --chown oracle:root'
 RUN chown -R oracle:root ${PROPERTIES_FILE_DIR}

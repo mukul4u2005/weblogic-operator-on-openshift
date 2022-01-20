@@ -124,24 +124,7 @@ RUN chown -R oracle:root ${PROPERTIES_FILE_DIR}
 # Set WORKDIR for @@PWD@@ global token in model file
 WORKDIR $ORACLE_HOME
 USER oracle
-RUN if [ -n "$WDT_MODEL" ]; then MODEL_OPT="-model_file $PROPERTIES_FILE_DIR/${WDT_MODEL##*/}"; fi && \
-    if [ -n "$WDT_ARCHIVE" ]; then ARCHIVE_OPT="-archive_file $PROPERTIES_FILE_DIR/${WDT_ARCHIVE##*/}"; fi && \
-    if [ -n "$WDT_VARIABLE" ]; then VARIABLE_OPT="-variable_file $PROPERTIES_FILE_DIR/${WDT_VARIABLE##*/}"; fi && \ 
-    ${WDT_HOME}/bin/createDomain.sh \
-        -oracle_home $ORACLE_HOME \
-        -java_home $JAVA_HOME \
-        -domain_home $DOMAIN_HOME \
-        -domain_type WLS \
-        $VARIABLE_OPT  \
-        $MODEL_OPT \
-        $ARCHIVE_OPT && \
-        echo ". $DOMAIN_HOME/bin/setDomainEnv.sh" >> /u01/oracle/.bashrc && \
-        rm -rf $PROPERTIES_FILE_DIR && \
-    chmod -R g+xwr $DOMAIN_HOME
 
-# Mount the domain home and the WDT home for easy access.
-VOLUME $DOMAIN_HOME
-VOLUME $WDT_HOME
 
 # Expose admin server, managed server port and domain debug port
 EXPOSE $ADMIN_PORT $MANAGED_SERVER_PORT $DEBUG_PORT
